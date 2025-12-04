@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNAMapper - Chromosome Mapping</title>
+    <style>
+        /* --- 1. Basic Layout and Controls --- */
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            background-color: #b2bfce;
+        }
+        .header-title {
+            /* Use inline-block with a fixed width to force text wrap */
+            display: inline-block;
+            width: 860px; /* Adjust this width based on your desired wrap point */
+            line-height: 1.1;
+            margin-bottom: 0; /* Remove default margin */
+            font-size: 2.5em; /* Increase size for impressiveness */
+        }
+        
+        .header-credit {
+            /* Align with the start of the H1 text content */
+            margin-top: 10px; /* Pull it slightly closer to the title */
+            margin-left: 260px; /* Offset to align with the 'D' (adjust based on font/emoji size) */
+            font-size: 0.9em;
+            color: #666;
+        }
+        #controls, #visualizationArea, #matchManagementPanel {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+        
+        button {
+            padding: 8px 12px;
+            margin: 2px 5px 2px 0;
+            cursor: pointer;
+            border: 1px solid #4b0082;
+            border-radius: 8px;
+        }
+        
+        /* --- 5. Consolidated Management Panel Styling --- */
+        #matchManagementPanel {
+            display: none; 
+            margin-top: 20px;
+        }
+        #matchManagementPanel h3 {
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+            margin-top: 20px;
+        }
+        #matchManagementPanel table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+        #matchManagementPanel th, #matchManagementPanel td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        #matchManagementPanel th {
+            background-color: #f2f2f2;
+        }
+        .group-color-swatch {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border: 1px solid #333;
+            vertical-align: middle;
+            margin-right: 5px;
+            border-radius: 3px;
+        }
+        .group-management-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 5px;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+        }
+
+
+        /* --- 2. Chromosome Track Styling --- */
+        .chromosome-container {
+            margin-bottom: 15px;
+            padding: 10px 0;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .chrom-header {
+            font-weight: bold;
+            font-size: 1.1em;
+            cursor: pointer;
+            color: #0056b3;
+            padding: 5px 0;
+            user-select: none;
+            display: flex;
+            align-items: center;
+        }
+        
+        /* New Styles for Match/Group Management Toggles */
+        .management-header {
+            font-weight: bold;
+            font-size: 1.1em;
+            cursor: pointer;
+            color: #0056b3;
+            padding: 5px 0;
+            user-select: none;
+            display: flex;
+            align-items: center;
+        }
+
+        .management-body {
+            /* Ensures content is visible by default or when expanded */
+            display: block;
+            margin-bottom: 15px;
+            padding-left: 10px;
+        }
+        /* End of New Styles */
+
+
+        .lane-header {
+            font-weight: bold;
+            font-size: 0.9em;
+            padding: 2px 5px;
+            margin-top: 5px;
+            border-radius: 2px;
+            width: fit-content;
+        }
+        
+        /* The area that contains all segments for one track (Paternal/Maternal/Shared) */
+        .track-lane {
+            display: block; 
+            position: relative;
+            min-height: 15px; 
+            margin: 5px 0;
+            background-color: #e9ecef; 
+            border-radius: 2px;
+            max-width: 900px; 
+            width: 100%; 
+            padding: 2px 0; 
+            box-sizing: border-box;
+            overflow: visible; 
+        }
+
+        /* The single line track shown when collapsed */
+        .combined-track {
+            position: relative;
+            height: 15px;
+            margin: 5px 0;
+            background-color: #e9ecef;
+            border-radius: 2px;
+            max-width: 900px; 
+            width: 100%; 
+            display: flex;
+            align-items: center;
+            box-sizing: border-box;
+        }
+
+        /* --- 3. DNA Segment Styling (Expanded View) --- */
+        .segment {
+            position: absolute;
+            height: 10px; 
+            border-radius: 1px;
+            opacity: 0.9;
+            transition: opacity 0.1s;
+            cursor: pointer; /* Change to pointer to indicate clickability */
+            min-width: 1px; 
+            border: 1px solid rgba(0,0,0,0.2); 
+            box-sizing: border-box;
+            max-width: 100%; 
+        }
+
+        /* Match Name Label */
+        .segment-label {
+            position: absolute;
+            left: 100%; 
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.7em;
+            background-color: #fefefe;
+            padding: 1px 3px;
+            border-radius: 2px;
+            white-space: nowrap;
+            color: #333;
+            pointer-events: none;
+            border: 1px solid #ddd;
+            margin-left: 3px; 
+            z-index: 50;
+        }
+
+        .segment:hover {
+            opacity: 1.0;
+            z-index: 60;
+        }
+
+        /* --- 3b. DNA Segment Styling (Collapsed View) --- */
+        .combined-segment {
+            position: absolute;
+            height: 100%;
+            opacity: 0.7;
+            border-radius: 1px;
+            min-width: 1px;
+            border: none;
+            cursor: pointer; /* Change to pointer to indicate clickability */
+        }
+
+        /* --- 3c. Pile-Up Styling (New Dedicated Row) */
+        .pile-up-track {
+            position: relative;
+            height: 15px;
+            margin: 5px 0;
+            background-color: #ddd; 
+            border-radius: 2px;
+            max-width: 900px; 
+            width: 100%; 
+            padding: 2px 0; 
+            box-sizing: border-box;
+        }
+
+        /* Style for the Pile-Up segment itself (Point 1) */
+        .pile-up-region {
+            position: absolute;
+            height: 10px; 
+            top: 50%;
+            transform: translateY(-50%);
+            border-radius: 1px;
+            min-width: 1px; 
+            background-color: #ccc !important; 
+            /* Gray stripe pattern */
+            background-image: repeating-linear-gradient(
+                -45deg, 
+                #f4f4f4, 
+                #f4f4f4 4px, 
+                #e0e0e0 4px, 
+                #e0e0e0 8px
+            ) !important;
+            opacity: 1.0;
+            border: 1px solid #aaa; 
+            cursor: help;
+        }
+        
+
+        /* --- 4. Tooltip & Modal Styling --- */
+        .tooltip {
+            position: absolute;
+            background: #333;
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            pointer-events: none; 
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 2000; 
+            white-space: nowrap;
+        }
+
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.4); 
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto; 
+            padding: 20px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-btn:hover,
+        .close-btn:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .edit-form label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .edit-form input[type="text"], .edit-form input[type="color"], .edit-form select {
+            width: 98%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div style="display: flex; flex-direction: column;">
+            <h1 class="header-title">
+                🧬 DNAMapper Project Tool v1.0
+            </h1>
+            <p class="header-credit">by StressJock 2025-12-03</p>
+        </div>
+        <p>Manage your DNA match segments in one persistent project.</p>
+        <p>This program is currently configured to read MyHeritage DNA match .csv files only.</p>
+    </header>
+
+    <div id="controls">
+        <h2>Project Management</h2>
+        <button id="newProjectBtn">➕ New Project</button>
+        <button id="loadProjectBtn">📂 Load Project (JSON)</button>
+        <input type="file" id="loadProjectFile" accept=".json" style="display: none;">
+        <button id="saveProjectBtn" disabled>💾 Save Project (JSON)</button>
+        <hr>
+
+        <h2>Add Match Data</h2>
+        <input type="file" id="matchCsvFile" accept=".csv" style="display: none;">
+        <button id="addMatchBtn" disabled>📤 Select & Add Match CSV</button>
+        <small id="minCmDisplay">(Default min cM cutoff: N/A)</small>
+        
+        <div id="newMatchInputForm" style="border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-top: 10px; display: none;">
+            <h3>Match Details for Pending Segments</h3>
+            <p>File: <span id="pendingFileName"></span>, Segments: <span id="pendingSegmentCount"></span></p>
+            <form id="matchInputForm">
+                <input type="hidden" id="matchFileName"> 
+                <input type="hidden" id="segmentCount"> 
+
+                <label for="inputMatchName">Match Name:</label>
+                <input type="text" id="inputMatchName" required>
+
+                <label for="inputGroupName">Group Name (Optional, New or Existing):</label>
+                <input type="text" id="inputGroupName" list="groupList">
+                <datalist id="groupList"></datalist>
+
+                <label for="inputStatus">Status:</label>
+                <select id="inputStatus" required>
+                    <option value="SHARED">Shared/Unknown</option>
+                    <option value="PATERNAL">Paternal</option>
+                    <option value="MATERNAL">Maternal</option>
+                </select>
+                
+                <p style="margin-top: 15px; font-weight: bold;">Group Details (Only needed for NEW groups):</p>
+                <label for="inputAncestorPair">Oldest Common Ancestor Pair:</label>
+                <input type="text" id="inputAncestorPair" placeholder="e.g., John Smith/Jane Doe">
+
+                <label for="inputGroupColor">Group Color:</label>
+                <input type="color" id="inputGroupColor" value="#f28e2b">
+                
+                <button type="submit" style="margin-top: 20px;">Confirm & Add Match</button>
+                <button type="button" id="cancelMatchInputBtn">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <div style="margin-bottom:12px;">
+        <button id="expandAllBtn">Expand All Chromosomes</button>
+        <button id="collapseAllBtn">Collapse All Chromosomes</button>
+    </div>
+
+    <div id="matchManagementPanel">
+        <h2>Match and Group Management</h2>
+        
+        <div id="groupManagementContent">
+            <h3 class="management-header" data-target="groupsContentBody">[- ] Groups</h3>
+            <div id="groupsContentBody" class="management-body">
+                <button onclick="addNewGroup()">+ Add New Group</button>
+                <table id="groupsTable" style="width:100%; border-collapse: collapse; margin-top:10px;"></table>
+            </div>
+        </div>
+        
+        <div id="matchManagementContent">
+            <h3 class="management-header" data-target="matchesContentBody">[- ] Matches</h3>
+            <div id="matchesContentBody" class="management-body">
+                <button onclick="saveMatchEdits()">Save Match Edits</button>
+                <button onclick="deleteSelectedMatches()" style="background-color: #f44336; color: white;">Delete Selected Matches</button>
+                <table id="matchesTable">
+                    </table>
+            </div>
+        </div>
+    </div>
+
+
+    <main id="visualizationArea">
+        </main>
+
+    <div id="segmentDetailsTooltip" class="tooltip"></div>
+
+    <div id="segmentEditModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn edit-modal-close-btn">&times;</span>
+            <h2>Edit Segment Assignment</h2>
+            
+            <p style="font-size: 0.9em; border: 1px solid #ccc; padding: 10px; border-radius: 4px; background: #f9f9f9;">
+                <strong>Segment:</strong> Chr <span id="editSegChrom"></span>, <span id="editSegCM"></span> cM<br>
+                <strong>Range:</strong> <span id="editSegRange"></span>
+            </p>
+
+            <form id="matchEditForm" class="edit-form">
+                <input type="hidden" id="editMatchIndex">
+                
+                <h3>Match Details</h3>
+                <label for="editMatchName">Match Name:</label>
+                <input type="text" id="editMatchName" disabled> 
+
+                <label for="editStatus">Status:</label>
+                <select id="editStatus" required>
+                    <option value="SHARED">Shared/Unknown</option>
+                    <option value="PATERNAL">Paternal</option>
+                    <option value="MATERNAL">Maternal</option>
+                </select>
+                
+                <label for="editGroupName">Group Name:</label>
+                <input type="text" id="editGroupName" list="editGroupList">
+                <datalist id="editGroupList"></datalist>
+
+                <hr>
+
+                <h3>Group Details (<span id="currentGroupEdit"></span>)</h3>
+                <label for="editAncestorPair">Oldest Common Ancestor Pair:</label>
+                <input type="text" id="editAncestorPair">
+
+                <label for="editGroupColor">Group Color:</label>
+                <input type="color" id="editGroupColor">
+
+                <button type="submit" style="margin-top: 20px;">Save Changes</button>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        // --- Data Structure Initialization ---
+        let DNAMapperProject = {
+            projectName: "",
+            minCM: 7.0, 
+            groups: {},
+            matches: []
+        };
+
+        // --- Reference Data ---
+        
+        const CHROMOSOME_CM_LENGTHS = {
+            1: 286, 2: 269, 3: 228, 4: 212, 5: 200, 6: 190, 7: 182, 8: 168, 9: 169, 
+            10: 165, 11: 158, 12: 150, 13: 115, 14: 110, 15: 100, 16: 95, 17: 90, 
+            18: 80, 19: 65, 20: 75, 21: 40, 22: 74
+        };
+        const MAX_CM_LENGTH = Math.max(...Object.values(CHROMOSOME_CM_LENGTHS)); 
+        
+        const CHROMOSOME_BP_LENGTHS = {
+            1: 248956422, 2: 242193529, 3: 198295559, 4: 190214555, 5: 181538259, 
+            6: 170805979, 7: 159345973, 8: 145138636, 9: 138394717, 10: 133797422, 
+            11: 135086622, 12: 133275309, 13: 114364328, 14: 107043718, 15: 101991189, 
+            16: 90338345, 17: 83257441, 18: 80373285, 19: 58617616, 20: 64444167, 
+            21: 46709983, 22: 50818468 
+        };
+
+        // Pile Up Region Data (Using cMStart/cMEnd to approximate position on the cM scale)
+        const PILE_UP_DATA = [
+            // These cM estimates map the BP range proportionally to the total cM length for visualization
+            { chrom: 9, startMB: 38293483, endMB: 72605261, cMStart: 45.0, cMEnd: 90.0 }, 
+            { chrom: 8, startMB: 10428647, endMB: 13469693, cMStart: 10.0, cMEnd: 20.0 },
+            { chrom: 21, startMB: 16344186, endMB: 19375168, cMStart: 25.0, cMEnd: 35.0 },
+            { chrom: 1, startMB: 118434520, endMB: 153401108, cMStart: 120.0, cMEnd: 160.0 },
+            { chrom: 17, startMB: 77186666, endMB: 78417478, cMStart: 80.0, cMEnd: 85.0 },
+            { chrom: 15, startMB: 20060673, endMB: 25145260, cMStart: 20.0, cMEnd: 30.0 },
+        ];
+
+
+        // --- Global State and DOM Elements ---
+        const matchCsvFile = document.getElementById('matchCsvFile');
+        const addMatchBtn = document.getElementById('addMatchBtn');
+        const saveProjectBtn = document.getElementById('saveProjectBtn');
+        const loadProjectFile = document.getElementById('loadProjectFile');
+        const vizArea = document.getElementById('visualizationArea');
+        const managementPanel = document.getElementById('matchManagementPanel');
+        const editModal = document.getElementById('segmentEditModal'); 
+        
+        let pendingSegments = []; 
+        let showMatchNames = true; 
+        let showPileUp = true;
+
+        
+        // --- Core Functions: Setup ---
+        
+        
+        function setupDynamicControls() {
+            // Idempotent creation of persistent toggles container
+            try {
+                let togglesDiv = document.getElementById('vizToggles');
+                if (!togglesDiv) {
+                    togglesDiv = document.createElement('div');
+                    togglesDiv.id = 'vizToggles';
+                    togglesDiv.style = "margin-bottom: 10px; display: flex; gap: 20px; align-items: center; font-family: inherit;";
+                    togglesDiv.innerHTML = `
+                        <div><input type="checkbox" id="togglePileUp"> <label for="togglePileUp">Show Pile Up Data (Hatched Regions)</label></div>
+                        <div><input type="checkbox" id="toggleMatchNames" checked> <label for="toggleMatchNames">Show Match Names</label></div>
+                    `;
+                    if (vizArea && vizArea.firstChild) vizArea.insertBefore(togglesDiv, vizArea.firstChild);
+                    else if (vizArea) vizArea.appendChild(togglesDiv);
+                } else {
+                    if (vizArea && togglesDiv.parentElement !== vizArea) vizArea.insertBefore(togglesDiv, vizArea.firstChild);
+                }
+
+                if (typeof showPileUp === 'undefined') showPileUp = true;
+                if (typeof showMatchNames === 'undefined') showMatchNames = true;
+
+                const pileCheckbox = document.getElementById('togglePileUp');
+                const nameCheckbox = document.getElementById('toggleMatchNames');
+                if (pileCheckbox) pileCheckbox.checked = showPileUp;
+                if (nameCheckbox) nameCheckbox.checked = showMatchNames;
+
+                if (!window._dnaTogglesInitialized) {
+                    window._dnaTogglesInitialized = true;
+                    if (pileCheckbox) {
+                        pileCheckbox.addEventListener('change', (e) => {
+                            showPileUp = e.target.checked;
+                            drawVisualization();
+                        });
+                    }
+                    if (nameCheckbox) {
+                        nameCheckbox.addEventListener('change', (e) => {
+                            showMatchNames = e.target.checked;
+                            drawVisualization();
+                        });
+                    }
+                }
+
+                // safe attach for forms/buttons (no duplicates)
+                if (!window._dnaFormInitialized) {
+                    window._dnaFormInitialized = true;
+                    const matchForm = document.getElementById('matchInputForm');
+                    const cancelBtn = document.getElementById('cancelMatchInputBtn');
+                    if (matchForm) matchForm.addEventListener('submit', handleMatchInputSubmit);
+                    if (cancelBtn) cancelBtn.addEventListener('click', cancelMatchInput);
+
+                    if (editModal) {
+                        const closeBtn = editModal.querySelector('.edit-modal-close-btn');
+                        if (closeBtn) closeBtn.onclick = function() { editModal.style.display = 'none'; };
+                    }
+                    const matchEditForm = document.getElementById('matchEditForm');
+                    if (matchEditForm) matchEditForm.addEventListener('submit', handleSegmentEditSubmit);
+
+                    window.addEventListener('click', function(event) {
+                        if (event.target === editModal) {
+                            editModal.style.display = 'none';
+                        }
+                    });
+                }
+            } catch (err) {
+                console.warn('setupDynamicControls error', err);
+            }
+        }
+
+        
+        function enableControls(enable) {
+            matchCsvFile.disabled = !enable;
+            addMatchBtn.disabled = !enable;
+            saveProjectBtn.disabled = !enable;
+            managementPanel.style.display = enable ? 'block' : 'none';
+            document.getElementById('minCmDisplay').textContent = `(Min cM cutoff: ${DNAMapperProject.minCM})`;
+            if (document.getElementById('togglePileUp')) document.getElementById('togglePileUp').disabled = !enable;
+            if (document.getElementById('toggleMatchNames')) document.getElementById('toggleMatchNames').disabled = !enable;
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('newProjectBtn').addEventListener('click', newProject);
+        document.getElementById('loadProjectBtn').addEventListener('click', () => loadProjectFile.click());
+        loadProjectFile.addEventListener('change', handleJsonLoad);
+        saveProjectBtn.addEventListener('click', saveProject);
+        document.getElementById('addMatchBtn').addEventListener('click', () => matchCsvFile.click());
+        matchCsvFile.addEventListener('change', handleCsvUpload);
+
+
+        // ------------------------------------------------------------------
+        // PROJECT LIFE CYCLE (Save/Load) (Unchanged)
+        // ------------------------------------------------------------------
+
+        function newProject() {
+            DNAMapperProject.projectName = prompt("Enter a name for the new project:", "My DNA Mapping Project");
+            if (DNAMapperProject.projectName) {
+                DNAMapperProject.matches = [];
+                DNAMapperProject.groups = {};
+                
+                const cmInput = prompt("Enter the minimum cM cutoff for segments (e.g., 7.0):", "7.0");
+                DNAMapperProject.minCM = parseFloat(cmInput) || 7.0;
+                
+                alert(`Project "${DNAMapperProject.projectName}" started with a default minimum cM of ${DNAMapperProject.minCM}.`);
+                
+                enableControls(true);
+                document.title = `DNAMapper - ${DNAMapperProject.projectName}`;
+                drawVisualization(); 
+                renderManagementPanels();
+            }
+        }
+
+        function saveProject() {
+            if (!DNAMapperProject.projectName) {
+                alert("Please start a new project or load one before saving.");
+                return;
+            }
+
+            const dataStr = JSON.stringify(DNAMapperProject, null, 2); 
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${DNAMapperProject.projectName.replace(/\s/g, '_')}_dnamap.json`;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(url);
+            alert(`Project saved! Note: The browser saves the file to your default downloads folder.`);
+        }
+
+        function handleJsonLoad(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const jsonString = e.target.result.trim(); 
+                    if (jsonString.length === 0) { alert("Error: The selected file is empty."); return;}
+
+                    const loadedProject = JSON.parse(jsonString);
+                    
+                    if (loadedProject && loadedProject.projectName && loadedProject.matches && loadedProject.groups) {
+                        DNAMapperProject = loadedProject;
+                        if (typeof DNAMapperProject.minCM !== 'number') { DNAMapperProject.minCM = 7.0; }
+                        showPileUp = document.getElementById('togglePileUp') ? document.getElementById('togglePileUp').checked : false; 
+                        alert(`Project "${DNAMapperProject.projectName}" loaded successfully.`);
+                        enableControls(true);
+                        document.title = `DNAMapper - ${DNAMapperProject.projectName}`;
+                        drawVisualization();
+                        renderManagementPanels();
+                    } else {
+                        alert("Error: The selected file does not appear to be a valid DNAMapper project file.");
+                    }
+                } catch (error) {
+                    console.error("Error loading JSON:", error);
+                    alert("Error parsing the JSON file. It may be corrupted or in an incorrect format. Check the console for details.");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; 
+        }
+        
+        // ------------------------------------------------------------------
+        // CSV INPUT & Parsing (Unchanged)
+        // ------------------------------------------------------------------
+        
+        function handleCsvUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!DNAMapperProject.projectName) {
+                alert("Please start or load a project before adding match data.");
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const csvData = e.target.result;
+                try {
+                    const segments = parseCsvData(csvData);
+                    if (segments.length > 0) {
+                        pendingSegments = segments; 
+                        openMatchInputPanel(file.name, segments); 
+                    } else {
+                        alert(`No segments found that meet the minimum ${DNAMapperProject.minCM} cM cutoff.`);
+                    }
+                } catch (error) {
+                    console.error("Error processing CSV:", error);
+                    alert(`Error reading or parsing the CSV file: ${error.message}`);
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCsvData(csvString) {
+            const lines = csvString.trim().split('\n');
+            if (lines.length < 2) return [];
+
+            const firstLine = lines[0].trim().replace(/"/g, '');
+            const separator = firstLine.includes('\t') ? '\t' : ','; 
+            const headers = firstLine.split(separator).map(h => h.trim());
+
+            const segmentData = [];
+            
+            const indices = {
+                chrom: headers.indexOf('Chromosome'),
+                start: headers.indexOf('Start Location'),
+                end: headers.indexOf('End Location'),
+                cm: headers.indexOf('Centimorgans'),
+                matchName: headers.indexOf('Match Name'),
+                cmStart: headers.indexOf('Start cM'),
+                cmEnd: headers.indexOf('End cM'),
+            };
+
+            const hasBP = indices.start !== -1 && indices.end !== -1;
+            const hasCM = indices.cmStart !== -1 && indices.cmEnd !== -1;
+            
+            if (indices.chrom === -1 || indices.cm === -1 || indices.matchName === -1) {
+                throw new Error("Missing required headers: Chromosome, Centimorgans, Match Name.");
+            }
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim() === '') continue; 
+                
+                const values = lines[i].split(separator).map(v => v.trim().replace(/"/g, ''));
+                
+                if (values.length < Math.max(...Object.values(indices)) + 1) continue; 
+
+                const cM = parseFloat(values[indices.cm]);
+                
+                if (!isNaN(cM) && cM >= DNAMapperProject.minCM) {
+                    segmentData.push({
+                        chromosome: parseInt(values[indices.chrom]),
+                        startMB: hasBP ? parseInt(values[indices.start]) : null,
+                        endMB: hasBP ? parseInt(values[indices.end]) : null,
+                        cM: cM,
+                        matchName: values[indices.matchName],
+                        cMStart: hasCM ? parseFloat(values[indices.cmStart]) : null,
+                        cMEnd: hasCM ? parseFloat(values[indices.cmEnd]) : null
+                    });
+                }
+            }
+            return segmentData;
+        }
+
+        // ------------------------------------------------------------------
+        // CONSOLIDATED UI FUNCTIONS (Match Input / Match Management)
+        // ------------------------------------------------------------------
+
+        function openMatchInputPanel(fileName, segments) {
+            const defaultMatchName = segments[0].matchName || fileName.replace('.csv', '');
+            
+            document.getElementById('pendingFileName').textContent = fileName;
+            document.getElementById('pendingSegmentCount').textContent = segments.length;
+            
+            document.getElementById('matchFileName').value = fileName;
+            document.getElementById('segmentCount').value = segments.length;
+            document.getElementById('inputMatchName').value = defaultMatchName;
+            document.getElementById('inputGroupName').value = ""; 
+            document.getElementById('inputStatus').value = "SHARED";
+            document.getElementById('inputAncestorPair').value = "";
+            document.getElementById('inputGroupColor').value = "#f28e2b";
+
+            const groupList = document.getElementById('groupList');
+            groupList.innerHTML = Object.keys(DNAMapperProject.groups).map(g => `<option value="${g}">`).join('');
+
+            document.getElementById('newMatchInputForm').style.display = 'block';
+            addMatchBtn.disabled = true;
+        }
+
+        function cancelMatchInput() {
+            document.getElementById('newMatchInputForm').style.display = 'none';
+            addMatchBtn.disabled = false;
+            pendingSegments = []; 
+        }
+
+        function handleMatchInputSubmit(event) {
+            event.preventDefault();
+            
+            const matchName = document.getElementById('inputMatchName').value.trim();
+            const rawGroupName = document.getElementById('inputGroupName').value.trim();
+            const status = document.getElementById('inputStatus').value;
+            const ancestorPair = document.getElementById('inputAncestorPair').value.trim();
+            const groupColor = document.getElementById('inputGroupColor').value;
+            const segments = pendingSegments;
+
+            if (!matchName || segments.length === 0) {
+                alert("Please ensure Match Name is filled and segments were loaded.");
+                return;
+            }
+            
+            const groupName = rawGroupName || "N/A"; 
+            
+            if (groupName !== "N/A" && !DNAMapperProject.groups[groupName]) {
+                DNAMapperProject.groups[groupName] = {
+                    ancestorPair: ancestorPair || "Unknown Ancestor",
+                    color: groupColor || "#f28e2b"
+                };
+            }
+            
+            const newMatch = {
+                matchName: matchName,
+                groupName: groupName,
+                status: status,
+                segments: segments
+            };
+
+            const existingMatchIndex = DNAMapperProject.matches.findIndex(m => m.matchName === matchName);
+
+            if (existingMatchIndex > -1) {
+                if (confirm(`Match "${matchName}" already exists. Do you want to overwrite segments and update its metadata?`)) {
+                    DNAMapperProject.matches[existingMatchIndex] = newMatch;
+                } else {
+                    cancelMatchInput();
+                    return;
+                }
+            } else {
+                DNAMapperProject.matches.push(newMatch);
+            }
+            
+            alert(`Match "${matchName}" successfully added/updated.`);
+            pendingSegments = []; 
+            cancelMatchInput();
+            drawVisualization();
+            renderManagementPanels();
+        }
+
+        function renderManagementPanels() {
+            renderGroupManagementPanel();
+            renderMatchManagementPanel();
+        }
+
+        
+        function renderMatchManagementPanel() {
+    const matchesTable = document.getElementById('matchesTable');
+    if (!matchesTable) return;
+    // Clear existing table
+    matchesTable.innerHTML = '';
+    // Build header
+    // CHANGE 1: Added 'Segments' and 'Chr' columns.
+    // CHANGE 2: Renamed 'Final Color' to 'Display Colour'.
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>Select</th><th>Match Name</th><th>Segments</th><th>Chr</th><th>Status</th><th>Group</th><th>Match Colour</th><th>Group Colour</th><th>Display Colour</th></tr>';
+    matchesTable.appendChild(thead);
+    const tbody = document.createElement('tbody');
+
+    const allGroupNames = Object.keys(DNAMapperProject.groups || {});
+    if (!allGroupNames.includes('N/A')) allGroupNames.push('N/A');
+
+    DNAMapperProject.matches = DNAMapperProject.matches || [];
+    DNAMapperProject.matches.forEach((match, index) => {
+        // ensure structure
+        match.color = match.color || getRandomPastelColor();
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-match-index', index);
+        
+        // Pre-calculate unique chromosomes for the 'Chr' column
+        const uniqueChromosomes = new Set();
+        (match.segments || []).forEach(seg => {
+            if (seg.chromosome >= 1 && seg.chromosome <= 22) {
+                uniqueChromosomes.add(seg.chromosome);
+            }
+        });
+        const chrList = Array.from(uniqueChromosomes).sort((a, b) => a - b).join(',');
+
+        // Select checkbox
+        const tdSel = document.createElement('td');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.name = 'selectMatch';
+        cb.value = index;
+        tdSel.appendChild(cb);
+        tr.appendChild(tdSel);
+
+        // Match Name
+        const tdName = document.createElement('td');
+        tdName.textContent = match.matchName || ('Match ' + index);
+        tr.appendChild(tdName);
+        
+        // Segment Count (CHANGE 1)
+        const tdSeg = document.createElement('td');
+        tdSeg.textContent = (match.segments || []).length;
+        tr.appendChild(tdSeg);
+        
+        // Chromosome List (CHANGE 1)
+        const tdChr = document.createElement('td');
+        tdChr.textContent = chrList;
+        tdChr.style.maxWidth = '100px'; 
+        tdChr.style.overflowX = 'auto'; 
+        tr.appendChild(tdChr);
+
+        // Status select
+        const tdStatus = document.createElement('td');
+        const selStatus = document.createElement('select'); selStatus.name = `status_${index}`;
+        ['SHARED','PATERNAL','MATERNAL'].forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s;
+            if (match.status === s) opt.selected = true;
+            selStatus.appendChild(opt);
+        });
+        tdStatus.appendChild(selStatus);
+        tr.appendChild(tdStatus);
+
+        // Group select
+        const tdGroup = document.createElement('td');
+        const selGroup = document.createElement('select'); selGroup.name = `group_${index}`;
+        allGroupNames.forEach(g => {
+            const opt = document.createElement('option');
+            opt.value = g;
+            opt.textContent = g;
+            if (match.groupName === g) opt.selected = true;
+            selGroup.appendChild(opt);
+        });
+        selGroup.addEventListener('change', function(){ handleGroupChange(index, this.value); });
+        tdGroup.appendChild(selGroup);
+        tr.appendChild(tdGroup);
+
+        // Match Colour (editable)
+        const tdMatchColor = document.createElement('td');
+        const inpColor = document.createElement('input');
+        inpColor.type = 'color';
+        inpColor.value = match.color || '#888888';
+        inpColor.addEventListener('change', function(){ updateMatchColor(index, this.value); });
+        tdMatchColor.appendChild(inpColor);
+        tr.appendChild(tdMatchColor);
+
+        // Group Colour display
+        const tdGroupColor = document.createElement('td');
+        const groupObj = (match.groupName && DNAMapperProject.groups[match.groupName]) ? DNAMapperProject.groups[match.groupName] : null;
+        const sw = document.createElement('div');
+        sw.style.width = '28px'; sw.style.height = '18px'; sw.style.border = '1px solid #666';
+        sw.style.background = groupObj ? groupObj.color : '#ffffff';
+        tdGroupColor.appendChild(sw);
+        tr.appendChild(tdGroupColor);
+
+        // Display Colour display (group overrides match) (CHANGE 2)
+        const tdFinal = document.createElement('td');
+        const final = (match.groupName && DNAMapperProject.groups[match.groupName]) ? DNAMapperProject.groups[match.groupName].color : (match.color || '#888888');
+        const finalSw = document.createElement('div');
+        finalSw.style.width = '60px'; 
+        finalSw.style.height = '18px'; 
+        finalSw.style.border = '1px solid #666';
+        finalSw.style.background = final;
+        // finalSw.textContent = final; // REMOVED HEX CODE TEXT
+        finalSw.style.padding = '2px';
+        finalSw.style.fontSize = '0.8em';
+        tdFinal.appendChild(finalSw);
+        tr.appendChild(tdFinal);
+
+        tbody.appendChild(tr);
+    });
+
+    matchesTable.appendChild(tbody);
+}
+    
+
+function renderGroupManagementPanel() {
+    const table = document.getElementById('groupsTable');
+    table.innerHTML = '';
+
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Group</th>
+                <th>Ancestors</th>
+                <th>Matches</th>
+                <th>Color</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+    `;
+
+    const tbody = document.createElement('tbody');
+
+    Object.keys(DNAMapperProject.groups).forEach(groupName => {
+        const group = DNAMapperProject.groups[groupName];
+
+        const belonging = DNAMapperProject.matches
+            .filter(m => m.groupName === groupName)
+            .map(m => m.matchName);
+
+        const matchList = belonging.length ? belonging.join(', ') : 'None';
+
+        const tr = document.createElement('tr');
+
+        tr.innerHTML = `
+            <td><strong>${groupName}</strong></td>
+            <td>${group.ancestorPair}</td>
+            <td>${matchList}</td>
+            <td>
+                <input type="color" value="${group.color}" 
+                       onchange="updateGroupColor(this.value, '${groupName}')">
+            </td>
+            <td>
+                <button onclick="editGroupDetails('${groupName}')">Edit</button>
+                <button onclick="deleteGroup('${groupName}')" 
+                        style="color:red;"
+                        ${belonging.length > 0 ? 'disabled' : ''}>
+                    Delete
+                </button>
+            </td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+}
+
+function updateGroupColor(newColor, groupName) { 
+            DNAMapperProject.groups[groupName].color = newColor; 
+            drawVisualization(); 
+            renderManagementPanels(); 
+        }
+
+        function editGroupDetails(groupName) {
+            const group = DNAMapperProject.groups[groupName];
+            const newAncestor = prompt(`Current Ancestor: ${group.ancestorPair}. Enter new Ancestor Pair:`, group.ancestorPair);
+            if (newAncestor) { 
+                group.ancestorPair = newAncestor; 
+                renderManagementPanels(); 
+            }
+        }
+        
+        function addNewGroup() {
+            const groupName = prompt("Enter the name for the new Group:");
+            if (groupName && groupName.trim() !== "" && !DNAMapperProject.groups[groupName] && groupName !== "N/A") {
+                const ancestor = prompt(`New Group "${groupName}". Enter oldest ancestor pair:`, "Unknown Ancestor");
+                const color = prompt(`Enter a color (e.g., #4e79a7 or hex) for group "${groupName}":`, "#4e79a7");
+                DNAMapperProject.groups[groupName] = { ancestorPair: ancestor, color: color || "#4e79a7" };
+                renderManagementPanels();
+                const groupList = document.getElementById('groupList');
+                groupList.innerHTML = Object.keys(DNAMapperProject.groups).map(g => `<option value="${g}">`).join('');
+                const editGroupList = document.getElementById('editGroupList');
+                editGroupList.innerHTML = Object.keys(DNAMapperProject.groups).map(g => `<option value="${g}">`).join('');
+            } else if (groupName) { 
+                alert("Group name cannot be blank, 'N/A', or already exists."); 
+            }
+        }
+        
+        function deleteGroup(groupName) {
+            if (DNAMapperProject.matches.some(m => m.groupName === groupName)) {
+                alert(`Cannot delete group "${groupName}". Please reassign all matches belonging to this group first.`);
+                return;
+            }
+            if (confirm(`Are you sure you want to delete the group "${groupName}"?`)) {
+                delete DNAMapperProject.groups[groupName];
+                renderManagementPanels();
+            }
+        }
+
+        
+        // ---- Helper functions for match color/group handling ----
+        function updateMatchColor(index, newColor) {
+            if (!DNAMapperProject.matches || !DNAMapperProject.matches[index]) return;
+            DNAMapperProject.matches[index].color = newColor;
+            renderMatchManagementPanel();
+            drawVisualization();
+        }
+
+        function handleGroupChange(index, groupName) {
+            if (!DNAMapperProject.matches || !DNAMapperProject.matches[index]) return;
+            DNAMapperProject.matches[index].groupName = groupName === 'N/A' ? null : groupName;
+            renderMatchManagementPanel();
+            drawVisualization();
+        }
+
+        function getRandomPastelColor() {
+            const h = Math.floor(Math.random()*360);
+            const s = 65;
+            const l = 80;
+            return `hsl(${h} ${s}% ${l}%)`;
+        }
+
+        function escapeHtml(unsafe) {
+            return ({
+    		'&': '&amp;',
+    		'<': '&lt;',
+  		  '>': '&gt;',
+  		  '"': '&quot;',
+  		  "'": '&#039;'
+	    })[m];
+        }
+
+function saveMatchEdits() {
+            const rows = document.querySelectorAll('#matchesTable tbody tr');
+            rows.forEach(row => {
+                const index = parseInt(row.getAttribute('data-match-index'));
+                if (isNaN(index)) return;
+                const match = DNAMapperProject.matches[index];
+                const newStatus = row.querySelector(`select[name="status_${index}"]`).value;
+                const newGroup = row.querySelector(`select[name="group_${index}"]`).value;
+                match.status = newStatus;
+                match.groupName = newGroup;
+            });
+            alert("Match assignments saved!");
+            renderGroupManagementPanel();
+            drawVisualization();
+        }
+
+        function deleteSelectedMatches() {
+            const selectedCheckboxes = document.querySelectorAll('#matchesTable input[name="selectMatch"]:checked');
+            if (selectedCheckboxes.length === 0) {
+                alert("Please select matches to delete.");
+                return;
+            }
+            if (!confirm(`Are you sure you want to delete ${selectedCheckboxes.length} selected matches? This action cannot be undone.`)) {
+                return;
+            }
+            const indicesToDelete = Array.from(selectedCheckboxes).map(cb => parseInt(cb.value)).sort((a, b) => b - a);
+            indicesToDelete.forEach(index => {
+                DNAMapperProject.matches.splice(index, 1);
+            });
+            alert("Selected matches deleted.");
+            drawVisualization();
+            renderManagementPanels();
+        }
+
+        // ------------------------------------------------------------------
+        // SEGMENT EDIT MODAL (Point 2)
+        // ------------------------------------------------------------------
+        
+        /**
+         * Opens the modal to edit the match and group data associated with a segment.
+         * @param {string} matchId The Match Name.
+         * @param {string} status The match status (PATERNAL/MATERNAL/SHARED).
+         * @param {string} groupName The Group Name.
+         * @param {object} segmentData The specific segment's data.
+         */
+        function openSegmentEditModal(matchId, status, groupName, segmentData) {
+            const matchIndex = DNAMapperProject.matches.findIndex(m => m.matchName === matchId);
+            if (matchIndex === -1) return;
+            
+            const match = DNAMapperProject.matches[matchIndex];
+            const group = DNAMapperProject.groups[groupName] || { ancestorPair: 'N/A', color: '#808080' };
+            
+            // 1. Fill Segment Info (Display Only)
+            document.getElementById('editSegChrom').textContent = segmentData.chrom;
+            document.getElementById('editSegCM').textContent = segmentData.cM;
+            document.getElementById('editSegRange').textContent = segmentData.range;
+
+            // 2. Fill Match & Group Data
+            document.getElementById('editMatchIndex').value = matchIndex;
+            document.getElementById('editMatchName').value = matchId; 
+            document.getElementById('editStatus').value = status; 
+            document.getElementById('editGroupName').value = groupName === 'N/A' ? '' : groupName;
+
+            document.getElementById('currentGroupEdit').textContent = groupName;
+            document.getElementById('editAncestorPair').value = group.ancestorPair === 'N/A' ? '' : group.ancestorPair;
+            document.getElementById('editGroupColor').value = group.color;
+
+            // 3. Update Datalist for Group Name
+            const editGroupList = document.getElementById('editGroupList');
+            editGroupList.innerHTML = Object.keys(DNAMapperProject.groups).map(g => `<option value="${g}">`).join('');
+
+            editModal.style.display = 'block';
+        }
+
+        /**
+         * Handles submission from the Segment Edit Modal.
+         */
+        function handleSegmentEditSubmit(event) {
+            event.preventDefault();
+            
+            const matchIndex = parseInt(document.getElementById('editMatchIndex').value);
+            const match = DNAMapperProject.matches[matchIndex];
+            
+            const newStatus = document.getElementById('editStatus').value;
+            const rawNewGroupName = document.getElementById('editGroupName').value.trim();
+            const newGroupName = rawNewGroupName || "N/A";
+            
+            const newAncestorPair = document.getElementById('editAncestorPair').value.trim();
+            const newGroupColor = document.getElementById('editGroupColor').value;
+            
+            // Update Match Properties
+            match.status = newStatus;
+            match.groupName = newGroupName;
+            
+            // Update/Create Group Properties
+            if (newGroupName !== "N/A") {
+                DNAMapperProject.groups[newGroupName] = {
+                    ancestorPair: newAncestorPair || "Unknown Ancestor",
+                    color: newGroupColor || "#f28e2b"
+                };
+            }
+            
+            // Clean up old group if necessary (handled by the general group management)
+
+            alert(`Match "${match.matchName}" and Group assignments updated!`);
+            editModal.style.display = 'none';
+            drawVisualization();
+            renderManagementPanels();
+        }
+
+        // ------------------------------------------------------------------
+        // VISUALIZATION CORE (Pile-Up and Boundary)
+        // ------------------------------------------------------------------
+        
+        function getChromTrackWidth(chromId) {
+            const chromCmLength = CHROMOSOME_CM_LENGTHS[chromId];
+            if (!chromCmLength) return 900; 
+            const scaledWidth = (chromCmLength / MAX_CM_LENGTH) * 900;
+            return Math.max(scaledWidth, 50); 
+        }
+
+        /**
+         * Calculates the segment's starting position (left CSS property in px) 
+         * and width (CSS width in px) based on the best available location data (cM or BP).
+         */
+        function getSegmentVisualMetrics(segment, chromId, trackWidth) {
+            const chromCmLength = CHROMOSOME_CM_LENGTHS[chromId];
+            const chromBpLength = CHROMOSOME_BP_LENGTHS[chromId];
+            
+            let positionLeft = 0; 
+            let segmentWidth = 0;
+
+            if (segment.cMStart !== null && segment.cMEnd !== null) {
+                positionLeft = (segment.cMStart / chromCmLength) * trackWidth;
+                segmentWidth = (segment.cM / chromCmLength) * trackWidth;
+            } else if (segment.startMB !== null && segment.endMB !== null && chromBpLength !== undefined) {
+                positionLeft = (segment.startMB / chromBpLength) * trackWidth;
+                const segmentBpLength = segment.endMB - segment.startMB;
+                segmentWidth = (segmentBpLength / chromBpLength) * trackWidth;
+            } else {
+                return { left: NaN, width: 0 };
+            }
+            
+            // Boundary Check: Ensure segments do not exceed the gray bar.
+            if (positionLeft + segmentWidth > trackWidth) {
+                segmentWidth = trackWidth - positionLeft;
+            }
+            
+            segmentWidth = Math.max(segmentWidth, 0); 
+            positionLeft = Math.max(0, positionLeft);
+
+            return { left: positionLeft, width: segmentWidth };
+        }
+
+
+        
+        function drawVisualization() {
+            try {
+                // preserve toggles
+                const vizRoot = document.getElementById('visualizationArea');
+                if (!vizRoot) return;
+                const togglesDiv = document.getElementById('vizToggles');
+                if (togglesDiv && togglesDiv.parentElement === vizRoot) {
+                    vizRoot.removeChild(togglesDiv);
+                }
+
+                // Clear visualization area safely
+                vizRoot.innerHTML = '';
+
+                // reattach toggles
+                if (togglesDiv) vizRoot.appendChild(togglesDiv);
+                else setupDynamicControls();
+
+                vizRoot.insertAdjacentHTML('beforeend', `<h2>Project: ${DNAMapperProject.projectName}</h2>`);
+                vizRoot.insertAdjacentHTML('beforeend', `<h2>Chromosome Visualization (1-22) - Default min cM cutoff: ${DNAMapperProject.minCM}</h2>`);
+
+                if (!DNAMapperProject.matches || DNAMapperProject.matches.length === 0) {
+                    vizRoot.insertAdjacentHTML('beforeend', `<p>No matches added yet. Default minimum cM cutoff: ${DNAMapperProject.minCM}.</p>`);
+                    return;
+                }
+
+                const allSegments = {};
+                for (let i = 1; i <= 22; i++) {
+                    allSegments[i] = { PATERNAL: [], MATERNAL: [], SHARED: [], COMBINED: [] };
+                }
+
+                DNAMapperProject.matches.forEach(match => {
+                    const group = DNAMapperProject.groups[match.groupName] || { color: '#808080', ancestorPair: 'N/A' };
+                    (match.segments || []).forEach(segment => {
+                        const chrom = Number(segment.chromosome);
+                        if (!(chrom >= 1 && chrom <= 22)) return;
+
+                        // compute robust cMStart/cMEnd fallbacks
+                        let startCM = null, endCM = null;
+                        if (segment.cMStart != null && segment.cMEnd != null) {
+                            const s = Number(segment.cMStart), e = Number(segment.cMEnd);
+                            if (!isNaN(s) && !isNaN(e) && e > s) {
+                                startCM = s; endCM = e;
+                            }
+                        }
+                        if ((startCM == null || endCM == null) && segment.startMB != null && segment.endMB != null) {
+                            const chromBpLen = CHROMOSOME_BP_LENGTHS[chrom];
+                            const chromCmLen = CHROMOSOME_CM_LENGTHS[chrom];
+                            if (chromBpLen && chromCmLen) {
+                                const sMb = Number(segment.startMB), eMb = Number(segment.endMB);
+                                if (!isNaN(sMb) && !isNaN(eMb) && eMb > sMb) {
+                                    const propS = sMb / chromBpLen;
+                                    const propE = eMb / chromBpLen;
+                                    startCM = propS * chromCmLen;
+                                    endCM = propE * chromCmLen;
+                                }
+                            }
+                        }
+
+                        const segData = {
+                            ...segment,
+                            matchId: match.matchName,
+                            groupName: match.groupName,
+                            status: match.status,
+                            color: ((match.groupName && DNAMapperProject.groups[match.groupName]) ? DNAMapperProject.groups[match.groupName].color : (match.color || group.color)),
+                            ancestorPair: group.ancestorPair,
+                            _cMStartFallback: startCM,
+                            _cMEndFallback: endCM,
+                            isPileUp: false
+                        };
+
+                        if (startCM != null && endCM != null) {
+                            segData.isPileUp = isSegmentInPileUp(chrom, startCM, endCM);
+                        } else {
+                            segData.isPileUp = false;
+                        }
+
+                        allSegments[chrom][segData.status].push(segData);
+                        allSegments[chrom].COMBINED.push(segData);
+                    });
+                });
+
+                for (let i = 1; i <= 22; i++) {
+                    const chromData = allSegments[i];
+                    const chromLengthCM = CHROMOSOME_CM_LENGTHS[i];
+                    const chromTrackWidth = getChromTrackWidth(i);
+
+                    if (!chromLengthCM) continue;
+
+                    const chromContainer = document.createElement('div');
+                    chromContainer.className = 'chromosome-container';
+                    chromContainer.id = `chrom-${i}`;
+
+                    const header = document.createElement('div');
+                    header.className = 'chrom-header';
+                    header.innerHTML = `[+] Chromosome ${i} (${chromLengthCM} cM)`;
+                    header.dataset.chromId = i;
+
+                    const trackArea = document.createElement('div');
+                    trackArea.className = 'chrom-track-area';
+                    trackArea.style.display = 'none';
+
+                    const combinedArea = document.createElement('div');
+                    combinedArea.className = 'combined-track-area';
+                    combinedArea.style.display = 'block';
+
+                    renderCombinedTrack(combinedArea, i, chromData.COMBINED, chromTrackWidth, chromLengthCM);
+
+                    chromContainer.appendChild(header);
+                    chromContainer.appendChild(combinedArea);
+                    chromContainer.appendChild(trackArea);
+                    vizRoot.appendChild(chromContainer);
+
+                    // Shared/Pile-up Track
+                    renderSharedTrackArea(trackArea, i, chromData.SHARED, chromTrackWidth, chromLengthCM);
+
+                    // Paternal/Maternal Tracks
+                    renderChromosomeMatchTrack(trackArea, i, 'PATERNAL', chromData.PATERNAL, chromTrackWidth, chromLengthCM);
+                    renderChromosomeMatchTrack(trackArea, i, 'MATERNAL', chromData.MATERNAL, chromTrackWidth, chromLengthCM);
+                }
+
+                setupInteractivity();
+            } catch (err) {
+                console.error('drawVisualization error', err);
+            }
+        }
+
+
+        /**
+         * Checks if a segment's cM range overlaps with any defined Pile-Up region (using cM data).
+         * Uses fallback proportional cM if BP data is provided but cM start/end is missing.
+         */
+        
+        function isSegmentInPileUp(chrom, startCM, endCM) {
+            try {
+                const chromNum = Number(chrom);
+                if (isNaN(chromNum)) return false;
+                let s = (startCM == null) ? null : Number(startCM);
+                let e = (endCM == null) ? null : Number(endCM);
+                if (s == null || e == null) return false;
+                if (isNaN(s) || isNaN(e)) return false;
+                if (e <= s) return false;
+                if (!Array.isArray(PILE_UP_DATA)) return false;
+                const dataSet = PILE_UP_DATA.filter(r => Number(r.chrom) === chromNum);
+                return dataSet.some(region => {
+                    const regionStart = Number(region.cMStart);
+                    const regionEnd = Number(region.cMEnd);
+                    if (isNaN(regionStart) || isNaN(regionEnd)) return false;
+                    return Math.max(s, regionStart) < Math.min(e, regionEnd);
+                });
+            } catch (err) {
+                console.warn('isSegmentInPileUp error', err);
+                return false;
+            }
+        }
+
+        
+        /**
+         * Renders the Shared track, including the Pile-Up regions if enabled.
+         */
+        function renderSharedTrackArea(trackArea, chromId, segments, chromTrackWidth, chromLengthCM) {
+            const status = 'SHARED';
+            const statusText = 'SHARED OR BOTH';
+
+            const laneHeader = document.createElement('div');
+            laneHeader.className = 'lane-header';
+            laneHeader.innerHTML = statusText;
+            laneHeader.style.cssText = `
+                background-color: #e0ffff; 
+                padding: 2px 5px; 
+                font-size: 0.9em;
+                margin-top: 5px;
+            `;
+            trackArea.appendChild(laneHeader);
+
+            // 1. Pile-Up Row (Point 1 fix)
+            if (showPileUp) {
+                const pileUpTrack = document.createElement('div');
+                pileUpTrack.className = 'pile-up-track';
+                pileUpTrack.style.width = `${chromTrackWidth}px`;
+                trackArea.appendChild(pileUpTrack);
+
+                const pileUpRegions = PILE_UP_DATA.filter(r => r.chrom === chromId);
+
+                pileUpRegions.forEach(region => {
+                    const regionStartCM = region.cMStart;
+                    const regionEndCM = region.cMEnd;
+                    
+                    if (regionStartCM === undefined || regionEndCM === undefined) return;
+
+                    const segLengthCM = regionEndCM - regionStartCM;
+
+                    let width = (segLengthCM / chromLengthCM) * chromTrackWidth;
+                    let positionLeft = (regionStartCM / chromLengthCM) * chromTrackWidth;
+                    
+                    if (positionLeft + width > chromTrackWidth) { width = chromTrackWidth - positionLeft; }
+                    width = Math.max(width, 0);
+                    positionLeft = Math.max(0, positionLeft);
+                    
+                    const segmentDiv = document.createElement('div');
+                    segmentDiv.className = 'pile-up-region';
+                    segmentDiv.style.left = `${positionLeft}px`;
+                    segmentDiv.style.width = `${width}px`;
+                    
+                    segmentDiv.dataset.info = JSON.stringify({
+                        matchName: "PILE-UP REGION",
+                        groupName: "N/A",
+                        ancestorPair: "N/A",
+                        status: 'N/A',
+                        chrom: chromId,
+                        cM: segLengthCM.toFixed(2),
+                        range: `${regionStartCM.toFixed(2)} cM - ${regionEndCM.toFixed(2)} cM`,
+                    });
+                    
+                    pileUpTrack.appendChild(segmentDiv);
+                });
+            }
+
+            // 2. Actual Shared Match Segments Track
+            const trackLane = document.createElement('div');
+            trackLane.className = 'track-lane';
+            trackLane.id = `track-${chromId}-${status}`;
+            trackLane.style.width = `${chromTrackWidth}px`;
+            trackArea.appendChild(trackLane);
+
+            renderSegmentsInLane(trackLane, segments, status, chromId, chromTrackWidth, true);
+        }
+
+        /**
+         * Renders the segments for a specific chromosome match track (Paternal or Maternal).
+         */
+        function renderChromosomeMatchTrack(trackArea, chromId, status, segments, chromTrackWidth, chromLengthCM) {
+            const statusText = status;
+
+            const laneHeader = document.createElement('div');
+            laneHeader.className = 'lane-header';
+            laneHeader.innerHTML = statusText;
+            laneHeader.style.cssText = `
+                background-color: ${status === 'PATERNAL' ? '#e6e6fa' : '#ffebeb'}; 
+                padding: 2px 5px; 
+                font-size: 0.9em;
+                margin-top: 5px;
+            `;
+            trackArea.appendChild(laneHeader);
+            
+            const trackLane = document.createElement('div');
+            trackLane.className = 'track-lane';
+            trackLane.id = `track-${chromId}-${status}`;
+            trackLane.style.width = `${chromTrackWidth}px`;
+            trackArea.appendChild(trackLane);
+
+            renderSegmentsInLane(trackLane, segments, status, chromId, chromTrackWidth, false);
+        }
+
+        /**
+         * Helper function to render segments within a track lane with stacking.
+         */
+        function renderSegmentsInLane(trackLane, segments, status, chromId, chromTrackWidth, isSharedTrack) {
+            const stackHeight = 16; 
+            let maxStackIndex = -1;
+            
+            const matchSegmentsMap = segments.reduce((acc, seg) => {
+                if (!acc[seg.matchId]) acc[seg.matchId] = [];
+                acc[seg.matchId].push(seg);
+                return acc;
+            }, {});
+            
+            const matchOrder = Object.keys(matchSegmentsMap);
+
+            matchOrder.forEach((matchId, stackIndex) => {
+                const matchSegments = matchSegmentsMap[matchId];
+                const positionTop = stackIndex * stackHeight + 2; 
+                maxStackIndex = Math.max(maxStackIndex, stackIndex);
+
+                let maxEndPosition = 0;
+
+                matchSegments.forEach(segment => {
+                    const { left: positionLeft, width: segmentWidth } = getSegmentVisualMetrics(segment, chromId, chromTrackWidth);
+
+                    if (segmentWidth <= 0 || isNaN(positionLeft)) return;
+
+                    maxEndPosition = Math.max(maxEndPosition, positionLeft + segmentWidth);
+
+                    const segmentDiv = document.createElement('div');
+                    segmentDiv.className = 'segment';
+                    segmentDiv.style.backgroundColor = segment.color;
+
+                    segmentDiv.style.left = `${positionLeft}px`; 
+                    segmentDiv.style.width = `${segmentWidth}px`;
+                    segmentDiv.style.top = `${positionTop}px`; 
+                    
+                    // Store the segment's match ID for the click handler
+                    segmentDiv.dataset.matchId = segment.matchId;
+                    segmentDiv.dataset.status = status;
+                    segmentDiv.dataset.groupName = segment.groupName;
+                    
+                    // Store the segment info for the tooltip/edit modal
+                    const segInfo = {
+                        matchName: segment.matchId,
+                        groupName: segment.groupName,
+                        ancestorPair: segment.ancestorPair,
+                        status: status,
+                        chrom: segment.chromosome,
+                        cM: segment.cM.toFixed(2),
+                        range: `${segment.cMStart !== null ? segment.cMStart.toFixed(2) + ' cM' : segment.startMB.toLocaleString()} - ${segment.cMEnd !== null ? segment.cMEnd.toFixed(2) + ' cM' : segment.endMB.toLocaleString()}`,
+                    };
+                    segmentDiv.dataset.info = JSON.stringify(segInfo);
+
+                    // Add click listener (Point 2)
+                    segmentDiv.addEventListener('click', () => openSegmentEditModal(segment.matchId, status, segment.groupName, segInfo));
+
+                    trackLane.appendChild(segmentDiv);
+                });
+
+                // Add Match Name Label
+                if (showMatchNames && maxEndPosition > 0) {
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'segment-label';
+                    labelDiv.textContent = matchId.split(' ')[0].substring(0, 10); 
+                    labelDiv.style.left = `${maxEndPosition}px`; 
+                    labelDiv.style.top = `${positionTop + 5}px`; 
+                    trackLane.appendChild(labelDiv);
+                }
+            });
+            
+            // Adjust track height
+            trackLane.style.height = `${(maxStackIndex + 1) * stackHeight + 8}px`; 
+        }
+
+        /**
+         * Renders the collapsed, single-line, superimposed track.
+         */
+        function renderCombinedTrack(container, chromId, segments, chromTrackWidth, chromLengthCM) {
+            const combinedTrack = document.createElement('div');
+            combinedTrack.className = 'combined-track';
+            combinedTrack.style.width = `${chromTrackWidth}px`;
+            
+            segments.forEach(segment => {
+                const { left: positionLeft, width: segmentWidth } = getSegmentVisualMetrics(segment, chromId, chromTrackWidth);
+                
+                if (segmentWidth <= 0 || isNaN(positionLeft)) return; 
+
+                const segmentDiv = document.createElement('div');
+                segmentDiv.className = 'combined-segment';
+                segmentDiv.style.backgroundColor = segment.color;
+                
+                segmentDiv.style.left = `${positionLeft}px`; 
+                segmentDiv.style.width = `${segmentWidth}px`;
+
+                // Store segment info for the click handler
+                segmentDiv.dataset.matchId = segment.matchId;
+                segmentDiv.dataset.status = segment.status;
+                segmentDiv.dataset.groupName = segment.groupName;
+                
+                const segInfo = {
+                    matchName: segment.matchId,
+                    groupName: segment.groupName,
+                    ancestorPair: segment.ancestorPair,
+                    status: segment.status,
+                    chrom: segment.chromosome,
+                    cM: segment.cM.toFixed(2),
+                    range: `${segment.cMStart !== null ? segment.cMStart.toFixed(2) + ' cM' : segment.startMB.toLocaleString()} - ${segment.cMEnd !== null ? segment.cMEnd.toFixed(2) + ' cM' : segment.endMB.toLocaleString()}`,
+                };
+                segmentDiv.dataset.info = JSON.stringify(segInfo);
+                
+                // Add click listener (Point 2)
+                segmentDiv.addEventListener('click', () => openSegmentEditModal(segment.matchId, segment.status, segment.groupName, segInfo));
+
+                combinedTrack.appendChild(segmentDiv);
+            });
+            
+            const chromLabel = document.createElement('div');
+            chromLabel.style.position = 'absolute';
+            chromLabel.style.left = '-120px';
+            chromLabel.style.fontWeight = 'bold';
+            chromLabel.style.fontSize = '0.9em';
+            chromLabel.innerHTML = chromId; 
+            combinedTrack.appendChild(chromLabel);
+
+            container.appendChild(combinedTrack);
+        }
+
+        // --- Interactivity Functions ---
+
+        /**
+         * New function to toggle the visibility of the Match/Group management content.
+         */
+        function toggleManagementPanelContent(header) {
+            const targetId = header.getAttribute('data-target');
+            const content = document.getElementById(targetId);
+            
+            if (!content) return;
+
+            const isExpanded = content.style.display === 'block';
+            
+            if (isExpanded) {
+                content.style.display = 'none';
+                header.innerHTML = header.innerHTML.replace('[- ]', '[+ ]');
+            } else {
+                content.style.display = 'block';
+                header.innerHTML = header.innerHTML.replace('[+ ]', '[- ]');
+            }
+        }
+
+        /**
+         * New function to set up event listeners for the Match/Group management headers.
+         */
+        function setupManagementToggles() {
+            // Select the new headers within the management panel
+            const headers = document.querySelectorAll('#matchManagementPanel .management-header');
+            
+            headers.forEach(header => {
+                // Ensure listener is only added once
+                if (!header.dataset.listenerAdded) {
+                    header.addEventListener('click', () => toggleManagementPanelContent(header));
+                    header.dataset.listenerAdded = 'true';
+                }
+            });
+        }
+        
+        function setupInteractivity() {
+            const tooltip = document.getElementById('segmentDetailsTooltip');
+            const pileUpSegments = document.querySelectorAll('.pile-up-region'); 
+            const headers = document.querySelectorAll('.chrom-header');
+            
+            // 1. Pile-Up Segment Hover Tooltip (Point 3)
+            pileUpSegments.forEach(segment => {
+                segment.addEventListener('mouseover', (e) => {
+                    const info = JSON.parse(e.target.dataset.info);
+                    
+                    tooltip.innerHTML = `
+                        <p><strong>Type:</strong> Pile-Up Region</p>
+                        <p><strong>Chr ${info.chrom} Length:</strong> ${info.cM} cM</p>
+                        <p><strong>Range:</strong> ${info.range}</p>
+                        <p style="color:red;">This is a known region for IBD inflation.</p>
+                    `;
+                    tooltip.style.opacity = 1;
+                });
+                segment.addEventListener('mousemove', (e) => {
+                    let x = e.pageX + 15;
+                    let y = e.pageY - 10;
+                    if (x + tooltip.offsetWidth > window.innerWidth - 20) { x = e.pageX - tooltip.offsetWidth - 15; }
+                    tooltip.style.left = `${x}px`;
+                    tooltip.style.top = `${y}px`;
+                });
+                segment.addEventListener('mouseout', () => { tooltip.style.opacity = 0; });
+            });
+
+            // 2. Collapsing/Expanding Tracks (Unchanged)
+            headers.forEach(header => {
+                header.addEventListener('click', (e) => {
+                    const combinedArea = header.nextElementSibling; 
+                    const trackArea = combinedArea.nextElementSibling; 
+                    const isExpanded = trackArea.style.display === 'block';
+                    if (isExpanded) {
+                        trackArea.style.display = 'none';
+                        combinedArea.style.display = 'block';
+                        header.innerHTML = header.innerHTML.replace('[-]', '[+]');
+                    } else {
+                        trackArea.style.display = 'block';
+                        combinedArea.style.display = 'none';
+                        header.innerHTML = header.innerHTML.replace('[+]', '[-]');
+                    }
+                });
+            });
+        }
+
+        // --- Execute setup functions ---
+        setupDynamicControls();
+        drawVisualization();
+        renderManagementPanels();
+        setupManagementToggles(); // <-- Call the new setup function
+    
+        // Expand / Collapse ALL chromosome handlers
+        (function(){
+            function expandAllChromosomes() {
+                document.querySelectorAll('.chromosome-container').forEach(c => {
+                    const combinedArea = c.querySelector('.combined-track-area');
+                    const trackArea = c.querySelector('.chrom-track-area');
+                    if (trackArea) trackArea.style.display = 'block';
+                    if (combinedArea) combinedArea.style.display = 'none';
+                    const header = c.querySelector('.chrom-header');
+                    if (header) header.innerHTML = header.innerHTML.replace('[+]', '[-]');
+                });
+            }
+            function collapseAllChromosomes() {
+                document.querySelectorAll('.chromosome-container').forEach(c => {
+                    const combinedArea = c.querySelector('.combined-track-area');
+                    const trackArea = c.querySelector('.chrom-track-area');
+                    if (trackArea) trackArea.style.display = 'none';
+                    if (combinedArea) combinedArea.style.display = 'block';
+                    const header = c.querySelector('.chrom-header');
+                    if (header) header.innerHTML = header.innerHTML.replace('[-]', '[+]');
+                });
+            }
+            const exp = document.getElementById('expandAllBtn');
+            const col = document.getElementById('collapseAllBtn');
+            if (exp) exp.addEventListener('click', expandAllChromosomes);
+            if (col) col.addEventListener('click', collapseAllChromosomes);
+        })();
+</script>
+</body>
+</html>
